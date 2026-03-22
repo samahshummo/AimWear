@@ -42,7 +42,7 @@ Real-time archery target simulation using MMA8451 accelerometer data.
 
 ### 3. Calibration
 
-- Hold bow steady for 10 seconds
+- Hold bow steady for 5 seconds
 - System auto-calibrates (triple beep confirms)
 - Crosshair turns yellow when on target
 
