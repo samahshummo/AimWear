@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Archery Simulation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body { 
+      font-family: 'Segoe UI', Tahoma, sans-serif; 
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); 
+      min-height: 100vh; 
+      color: #fff; 
+      overflow: hidden; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+    }
+    
+    .main-container {
+      display: flex;
+      gap: 60px;
+      align-items: flex-start;
+      padding: 40px;
+    }
+    
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 240px;
+    }
+    
+    .panel {
+      background: rgba(0,0,0,0.85);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    
+    .panel h3 {
+      color: #ffcc00;
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+    }
+    
+    .info-label { color: rgba(255,255,255,0.6); }
+    .info-value { font-weight: bold; }
+    .info-value.active { color: #00ff88; }
+    .info-value.warning { color: #ffcc00; }
+    .info-value.calibrating { color: #3498db; }
+    
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .score-row:last-child { border-bottom: none; }
+    .score-row.active { background: rgba(255,200,0,0.15); border-radius: 4px; padding: 5px 4px; }
+    
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    
+    .stat-value { font-weight: bold; color: #00ff88; font-size: 1.05rem; }
+    
+    .simulation-area { 
+      position: relative; 
+      width: 600px; 
+      height: 600px; 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .target-container {
+      position: relative;
+      width: 550px;
+      height: 550px;
+    }
+    
+    .target { 
+      width: 100%; 
+      height: 100%; 
+      border-radius: 50%; 
+      background: 
+        radial-gradient(circle, #fff 0%, #fff 10%, #000 10.5%, #000 11%, #fff 11.5%, #fff 20%, #000 20.5%, #000 21%, #fff 21.5%, #fff 30%, #000 30.5%, #000 31%, #fff 31.5%, #fff 40%, #000 40.5%, #000 41%, #fff 41.5%, #fff 50%, #000 50.5%, #000 51%, #fff 51.5%, #fff 60%, #000 60.5%, #000 61%, #fff 61.5%, #fff 70%, #000 70.5%, #000 71%, #fff 71.5%, #fff 80%, #000 80.5%, #000 81%, #fff 81.5%, #fff 90%, #000 90.5%, #000 91%, #fff 91.5%); 
+      box-shadow: 0 0 80px rgba(255,200,0,0.4); 
+    }
+    
+    .target-center { 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      width: 56px; 
+      height: 56px; 
+      border-radius: 50%; 
+      background: radial-gradient(circle, #ff6b35, #c41e3a); 
+      box-shadow: 0 0 30px rgba(255,107,53,1), 0 0 60px rgba(255,107,53,0.5); 
+      z-index: 5; 
+      animation: bullseyePulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes bullseyePulse {
+      0%, 100% { box-shadow: 0 0 30px rgba(255,107,53,1), 0 0 60px rgba(255,107,53,0.5); }
+      50% { box-shadow: 0 0 40px rgba(255,107,53,1), 0 0 80px rgba(255,107,53,0.7); }
+    }
+    
+    .crosshair { 
+      position: absolute; 
+      width: 50px; 
+      height: 50px; 
+      z-index: 10; 
+      transition: left 0.06s ease-out, top 0.06s ease-out; 
+      pointer-events: none; 
+    }
+    
+    .crosshair::before, .crosshair::after { 
+      content: ''; 
+      position: absolute; 
+      background: #00ff88; 
+      box-shadow: 0 0 10px #00ff88; 
+    }
+    
+    .crosshair::before { width: 100%; height: 3px; top: 50%; transform: translateY(-50%); }
+    .crosshair::after { width: 3px; height: 100%; left: 50%; transform: translateX(-50%); }
+    
+    .crosshair-dot { 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      width: 12px; 
+      height: 12px; 
+      border-radius: 50%; 
+      background: #00ff88; 
+      box-shadow: 0 0 15px #00ff88; 
+    }
+    
+    .crosshair.on-target .crosshair-dot { background: #ffcc00; box-shadow: 0 0 20px #ffcc00; animation: pulse 0.4s infinite; }
+    .crosshair.on-target::before, .crosshair.on-target::after { background: #ffcc00; box-shadow: 0 0 10px #ffcc00; }
+    
+    @keyframes pulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.3); } }
+    
+    .ref-marker {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(50, 100, 255, 0.6);
+      border: 3px solid rgba(50, 100, 255, 0.9);
+      transform: translate(-50%, -50%);
+      z-index: 8;
+      pointer-events: none;
+      display: none;
+      transition: background 0.1s, border-color 0.1s;
+    }
+    
+    .ref-marker.active {
+      display: block;
+    }
+    
+    .ref-marker.at-point {
+      background: rgba(255, 50, 50, 0.8);
+      border-color: rgba(255, 50, 50, 1);
+      box-shadow: 0 0 15px rgba(255, 50, 50, 0.8);
+    }
+    
+    .arrow-mark { 
+      position: absolute; 
+      width: 8px; 
+      height: 8px; 
+      border-radius: 50%; 
+      background: #555; 
+      border: 2px solid #fff; 
+      transform: translate(-50%, -50%); 
+      z-index: 15; 
+      pointer-events: none; 
+    }
+    
+    .arrow-mark.hit { background: #ffcc00; border-color: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
+    
+    .bottom-controls {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: rgba(0,0,0,0.85);
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-right: 10px;
+    }
+    
+    .connection-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ff6b6b;
+      transition: background 0.3s;
+    }
+    
+    .connection-dot.connected { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+    
+    .btn {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s;
+      font-weight: 600;
+    }
+    
+    .btn:hover { transform: scale(1.05); }
+    .btn:active { transform: scale(0.95); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    
+    .btn-connect { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+    .btn-demo { background: linear-gradient(135deg, #3498db, #2980b9); color: white; }
+    .btn-shoot { background: linear-gradient(135deg, #27ae60, #1e8449); color: white; padding: 10px 20px; font-size: 0.95rem; }
+    .btn-reset { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; }
+    .btn-debug { background: #555; color: white; }
+    
+    .debug-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.95);
+      border: 2px solid #ffcc00;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 500px;
+      max-height: 400px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+    }
+    
+    .debug-panel h3 { color: #ffcc00; margin-bottom: 15px; }
+    .debug-panel pre { background: #1a1a2e; padding: 12px; border-radius: 6px; font-size: 0.75rem; max-height: 300px; overflow-y: auto; color: #00ff88; }
+    .debug-panel button { margin-top: 15px; }
+    
+    .baud-select {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+    
+    .cal-timer {
+      font-size: 0.8rem;
+      color: #3498db;
+      text-align: center;
+      margin-top: 5px;
+    }
+    
+    #onTargetTimerRow {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .cal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 50;
+    }
+    
+    .cal-countdown {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.9);
+      border: 2px solid #3498db;
+      border-radius: 12px;
+      padding: 15px 25px;
+      text-align: center;
+      z-index: 51;
+      display: none;
+    }
+    
+    .cal-countdown.active {
+      display: block;
+      animation: countPulse 1s ease-in-out infinite;
+    }
+    
+    .cal-countdown h4 {
+      color: #3498db;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+    }
+    
+    .cal-countdown .time {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #fff;
+    }
+    
+    .cal-countdown .hint {
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.5);
+      margin-top: 5px;
+    }
+    
+    .cal-countdown.reference {
+      border-color: #ff6b6b;
+    }
+    
+    .cal-countdown.reference h4 {
+      color: #ff6b6b;
+    }
+    
+    @keyframes countPulse {
+      0%, 100% { transform: scale(1); border-color: #3498db; }
+      50% { transform: scale(1.02); border-color: #5dade2; }
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+    <div class="side-panel left-panel">
+      <div class="panel">
+        <h3>Sensor Data</h3>
+        <div class="info-row"><span class="info-label">Status:</span><span class="info-value" id="status">Disconnected</span></div>
+        <div class="info-row"><span class="info-label">Pitch:</span><span class="info-value" id="pitch">0.00°</span></div>
+        <div class="info-row"><span class="info-label">Roll:</span><span class="info-value" id="roll">0.00°</span></div>
+        <div class="info-row"><span class="info-label">Deviation:</span><span class="info-value" id="deviation">0.00°</span></div>
+        <div class="info-row"><span class="info-label">On Target:</span><span class="info-value" id="onTarget">No</span></div>
+        <div class="cal-timer" id="calTimer"></div>
+        <div class="info-row" id="onTargetTimerRow"><span class="info-label">Time on Target:</span><span class="info-value" id="onTargetTimer">0.0s</span></div>
+      </div>
+      
+      <div class="panel">
+        <h3>Statistics</h3>
+        <div class="stat-row"><span>Total Shots</span><span class="stat-value" id="totalShots">0</span></div>
+        <div class="stat-row"><span>Hits</span><span class="stat-value" id="totalHits">0</span></div>
+        <div class="stat-row"><span>Accuracy</span><span class="stat-value" id="accuracy">0%</span></div>
+        <div class="stat-row"><span>Avg Score</span><span class="stat-value" id="avgScore">0.0</span></div>
+        <div class="stat-row"><span>Best</span><span class="stat-value" id="bestScore">0</span></div>
+      </div>
+    </div>
+    
+    <div class="simulation-area">
+      <div class="target-container" id="targetContainer">
+        <div class="target"></div>
+        <div class="target-center"></div>
+        <div class="ref-marker" id="refMarker"></div>
+        <div class="crosshair" id="crosshair"><div class="crosshair-dot"></div></div>
+      </div>
+    </div>
+    
+    <div class="side-panel right-panel">
+      <div class="panel">
+        <h3>Scoreboard</h3>
+        <div class="score-row" id="ring-10"><span>Bullseye (10)</span><span id="hits-10">0</span></div>
+        <div class="score-row" id="ring-9"><span>Inner Gold (9)</span><span id="hits-9">0</span></div>
+        <div class="score-row" id="ring-8"><span>Outer Gold (8)</span><span id="hits-8">0</span></div>
+        <div class="score-row" id="ring-7"><span>Red Inner (7)</span><span id="hits-7">0</span></div>
+        <div class="score-row" id="ring-6"><span>Red Outer (6)</span><span id="hits-6">0</span></div>
+        <div class="score-row" id="ring-5"><span>Blue Inner (5)</span><span id="hits-5">0</span></div>
+        <div class="score-row" id="ring-4"><span>Blue Outer (4)</span><span id="hits-4">0</span></div>
+        <div class="score-row" id="ring-3"><span>Black (3)</span><span id="hits-3">0</span></div>
+        <div class="score-row" id="ring-2"><span>White Inner (2)</span><span id="hits-2">0</span></div>
+        <div class="score-row" id="ring-1"><span>White Outer (1)</span><span id="hits-1">0</span></div>
+        <div class="score-row" id="ring-0"><span>Missed</span><span id="hits-0">0</span></div>
+      </div>
+      
+      <div class="panel">
+        <h3>Actions</h3>
+        <button class="btn btn-shoot" id="shootBtn" disabled>SHOOT</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="bottom-controls">
+    <div class="connection-status">
+      <div class="connection-dot" id="connectionDot"></div>
+      <span id="connectionText">Not Connected</span>
+    </div>
+    <select class="baud-select" id="baudSelect">
+      <option value="9600">9600</option>
+      <option value="115200" selected>115200</option>
+    </select>
+    <button class="btn btn-connect" id="connectBtn">Connect</button>
+    <button class="btn btn-demo" id="demoBtn">Demo</button>
+    <button class="btn btn-reset" id="resetBtn">Reset</button>
+    <button class="btn btn-debug" id="debugBtn">Debug</button>
+  </div>
+  
+  <div class="debug-panel" id="debugPanel">
+    <h3>Debug Console</h3>
+    <pre id="debugLog"></pre>
+    <button class="btn btn-connect" onclick="document.getElementById('debugPanel').style.display='none'">Close</button>
+  </div>
+  
+  <div class="cal-countdown" id="calCountdown">
+    <h4 id="calTitle">SETTING REFERENCE</h4>
+    <div class="time" id="calTimeDisplay">5</div>
+    <div class="hint" id="calHint">Hold still...</div>
+  </div>
+
+  <script>
+    const CONFIG = {
+      CENTER_X: 275, CENTER_Y: 275,
+      PITCH_SCALE: 28, ROLL_SCALE: 28,
+      RINGS: [
+        { r: 28, s: 10 }, { r: 55, s: 9 }, { r: 83, s: 8 },
+        { r: 110, s: 7 }, { r: 138, s: 6 }, { r: 165, s: 5 },
+        { r: 193, s: 4 }, { r: 220, s: 3 }, { r: 248, s: 2 }, { r: 275, s: 1 }
+      ]
+    };
+
+    const state = {
+      connected: false, port: null, reader: null, writer: null,
+      pitch: 0, roll: 0, deviation: 0,
+      crosshairX: CONFIG.CENTER_X, crosshairY: CONFIG.CENTER_Y,
+      targetX: CONFIG.CENTER_X, targetY: CONFIG.CENTER_Y,
+      onTarget: false, wasAtRef: false, demoMode: false,
+      basePitch: 0, baseRoll: 0,
+      calibState: 'idle',
+      activePoint: null,
+      refMarkerX: CONFIG.CENTER_X,
+      refMarkerY: CONFIG.CENTER_Y,
+      onTargetTime: 0,
+      scores: {}, totalShots: 0, totalScore: 0, bestScore: 0,
+      canShoot: true
+    };
+
+    for (let i = 0; i <= 10; i++) state.scores[i] = 0;
+
+    const E = {
+      crosshair: document.getElementById('crosshair'),
+      targetContainer: document.getElementById('targetContainer'),
+      status: document.getElementById('status'),
+      pitch: document.getElementById('pitch'),
+      roll: document.getElementById('roll'),
+      deviation: document.getElementById('deviation'),
+      onTarget: document.getElementById('onTarget'),
+      calTimer: document.getElementById('calTimer'),
+      calCountdown: document.getElementById('calCountdown'),
+      calTitle: document.getElementById('calTitle'),
+      calTimeDisplay: document.getElementById('calTimeDisplay'),
+      calHint: document.getElementById('calHint'),
+      onTargetTimer: document.getElementById('onTargetTimer'),
+      refMarker: document.getElementById('refMarker'),
+      shootBtn: document.getElementById('shootBtn'),
+      connectBtn: document.getElementById('connectBtn'),
+      demoBtn: document.getElementById('demoBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      debugBtn: document.getElementById('debugBtn'),
+      debugPanel: document.getElementById('debugPanel'),
+      debugLog: document.getElementById('debugLog'),
+      connectionDot: document.getElementById('connectionDot'),
+      connectionText: document.getElementById('connectionText'),
+      baudSelect: document.getElementById('baudSelect'),
+      totalShots: document.getElementById('totalShots'),
+      totalHits: document.getElementById('totalHits'),
+      accuracy: document.getElementById('accuracy'),
+      avgScore: document.getElementById('avgScore'),
+      bestScore: document.getElementById('bestScore')
+    };
+
+    const logs = [];
+    function log(msg, type = 'info') {
+      const t = new Date().toLocaleTimeString();
+      logs.push(`[${t}] [${type.toUpperCase()}] ${msg}`);
+      if (logs.length > 50) logs.shift();
+      E.debugLog.textContent = logs.join('\n');
+      console.log(`[${type}] ${msg}`);
+    }
+
+    const CALIB_DELAY = 5000;
+    const BUZZ_FREQ = 880;
+
+    let audioCtx = null;
+    let buzzOscillator = null;
+    let buzzTimeout = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playBuzz() {
+      if (buzzOscillator) return;
+      initAudio();
+      
+      buzzOscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      buzzOscillator.type = 'sine';
+      buzzOscillator.frequency.value = BUZZ_FREQ;
+      gainNode.gain.value = 0.3;
+      
+      buzzOscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      buzzOscillator.start();
+    }
+
+    function stopBuzz() {
+      if (buzzTimeout) {
+        clearTimeout(buzzTimeout);
+        buzzTimeout = null;
+      }
+      if (buzzOscillator) {
+        try { buzzOscillator.stop(); } catch(e) {}
+        buzzOscillator.disconnect();
+        buzzOscillator = null;
+      }
+    }
+
+    function isAtReference() {
+      if (!state.activePoint) return false;
+      const dx = Math.abs(state.crosshairX - state.activePoint.x);
+      const dy = Math.abs(state.crosshairY - state.activePoint.y);
+      return dx <= 3 && dy <= 3;
+    }
+
+    function updateUI() {
+      E.crosshair.style.left = `${state.crosshairX - 25}px`;
+      E.crosshair.style.top = `${state.crosshairY - 25}px`;
+      
+      const pitchOffset = state.pitch - state.basePitch;
+      const rollOffset = state.roll - state.baseRoll;
+      E.pitch.textContent = `${pitchOffset.toFixed(2)}°`;
+      E.roll.textContent = `${rollOffset.toFixed(2)}°`;
+      E.deviation.textContent = `${state.deviation.toFixed(2)}°`;
+      
+      E.onTarget.textContent = state.onTarget ? 'Yes' : 'No';
+      E.onTarget.className = `info-value ${state.onTarget ? 'active' : 'warning'}`;
+      
+      E.crosshair.classList.toggle('on-target', state.onTarget);
+      
+      E.onTargetTimer.textContent = `${state.onTargetTime.toFixed(1)}s`;
+      
+      if (state.activePoint) {
+        E.refMarker.style.left = `${state.refMarkerX}px`;
+        E.refMarker.style.top = `${state.refMarkerY}px`;
+        E.refMarker.classList.add('active');
+        E.refMarker.classList.toggle('at-point', state.onTarget);
+      } else {
+        E.refMarker.classList.remove('active', 'at-point');
+      }
+      
+      if (state.calibState === 'idle') {
+        E.calTimer.textContent = '';
+        E.calCountdown.classList.remove('active');
+        E.status.textContent = 'Hold Still to Set Reference';
+        E.status.className = 'info-value calibrating';
+      } else if (state.calibState === 'reference') {
+        E.calCountdown.classList.add('active', 'reference');
+        E.calTitle.textContent = 'SETTING REFERENCE';
+        E.calTimeDisplay.textContent = '1';
+        E.calHint.textContent = 'Hold position...';
+        E.status.textContent = 'Setting Reference...';
+        E.status.className = 'info-value calibrating';
+      } else if (state.calibState === 'monitoring') {
+        E.calCountdown.classList.remove('active');
+        E.calTimer.textContent = '';
+        E.status.textContent = state.onTarget ? 'On Target' : 'Monitoring';
+        E.status.className = `info-value ${state.onTarget ? 'active' : 'warning'}`;
+      }
+      
+      const hits = state.totalShots - state.scores[0];
+      E.totalShots.textContent = state.totalShots;
+      E.totalHits.textContent = hits;
+      E.accuracy.textContent = state.totalShots > 0 ? `${Math.round(hits/state.totalShots*100)}%` : '0%';
+      E.avgScore.textContent = state.totalShots > 0 ? (state.totalScore/state.totalShots).toFixed(1) : '0.0';
+      E.bestScore.textContent = state.bestScore;
+    }
+
+    function updateSensorData(data) {
+      if (data.P !== undefined) state.pitch = data.P;
+      if (data.R !== undefined) state.roll = data.R;
+      if (data.DEV !== undefined) state.deviation = data.DEV;
+      
+      const pitchOffset = state.pitch - state.basePitch;
+      const rollOffset = state.roll - state.baseRoll;
+      
+      state.crosshairX = CONFIG.CENTER_X + (rollOffset * CONFIG.ROLL_SCALE);
+      state.crosshairY = CONFIG.CENTER_Y - (pitchOffset * CONFIG.PITCH_SCALE);
+    }
+
+    function createArrowMark(x, y, hit) {
+      const mark = document.createElement('div');
+      mark.className = `arrow-mark ${hit ? 'hit' : ''}`;
+      mark.style.left = `${x}px`;
+      mark.style.top = `${y}px`;
+      E.targetContainer.appendChild(mark);
+      setTimeout(() => mark.style.opacity = '0.4', 2000);
+    }
+
+    function getScore(x, y) {
+      const dx = x - CONFIG.CENTER_X, dy = y - CONFIG.CENTER_Y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      for (const ring of CONFIG.RINGS) if (dist <= ring.r) return ring.s;
+      return 0;
+    }
+
+    function shoot() {
+      if (!state.canShoot || !state.connected) return;
+      state.canShoot = false;
+      
+      const x = Math.round(state.crosshairX);
+      const y = Math.round(state.crosshairY);
+      const score = getScore(x, y);
+      
+      state.totalShots++;
+      state.scores[score]++;
+      state.totalScore += score;
+      if (score > state.bestScore) state.bestScore = score;
+      
+      createArrowMark(x, y, score > 0);
+      
+      const el = document.getElementById(`hits-${score}`);
+      if (el) {
+        el.textContent = state.scores[score];
+        el.parentElement.classList.add('active');
+        setTimeout(() => el.parentElement.classList.remove('active'), 400);
+      }
+      
+      log(`Shot: ${score}`, 'data');
+      updateUI();
+      setTimeout(() => { state.canShoot = true; }, 500);
+    }
+
+    function fullReset() {
+      stopBuzz();
+      if (state.connected && !state.demoMode) {
+        disconnect();
+      }
+      
+      state.connected = false;
+      state.port = null;
+      state.reader = null;
+      state.writer = null;
+      state.pitch = 0;
+      state.roll = 0;
+      state.deviation = 0;
+      state.crosshairX = CONFIG.CENTER_X;
+      state.crosshairY = CONFIG.CENTER_Y;
+      state.onTarget = false;
+      state.wasAtRef = false;
+      state.demoMode = false;
+      state.basePitch = 0;
+      state.baseRoll = 0;
+      state.calibState = 'idle';
+      state.activePoint = null;
+      state.refMarkerX = CONFIG.CENTER_X;
+      state.refMarkerY = CONFIG.CENTER_Y;
+      state.onTargetTime = 0;
+      stillStart = 0;
+      lastX = CONFIG.CENTER_X;
+      lastY = CONFIG.CENTER_Y;
+      state.scores = {};
+      state.totalShots = 0;
+      state.totalScore = 0;
+      state.bestScore = 0;
+      state.canShoot = true;
+      for (let i = 0; i <= 10; i++) state.scores[i] = 0;
+      
+      document.querySelectorAll('.arrow-mark').forEach(el => el.remove());
+      document.querySelectorAll('[id^="hits-"]').forEach(el => el.textContent = '0');
+      
+      E.connectionDot.classList.remove('connected');
+      E.connectionText.textContent = 'Not Connected';
+      E.connectBtn.textContent = 'Connect';
+      E.connectBtn.style.display = '';
+      E.demoBtn.style.display = '';
+      E.shootBtn.disabled = true;
+      E.calCountdown.classList.remove('active');
+      
+      log('Full reset complete', 'info');
+      updateUI();
+    }
+
+    async function connect() {
+      try {
+        log('Connecting...', 'info');
+        if (!('serial' in navigator)) { alert('Use Chrome or Edge'); return; }
+        
+        const baud = parseInt(E.baudSelect.value);
+        state.port = await navigator.serial.requestPort();
+        await state.port.open({ baudRate: baud });
+        
+        state.connected = true;
+        state.demoMode = false;
+        state.crosshairX = CONFIG.CENTER_X;
+        state.crosshairY = CONFIG.CENTER_Y;
+        state.calibState = 'idle';
+        state.activePoint = null;
+        state.onTargetTime = 0;
+        stillStart = 0;
+        lastX = CONFIG.CENTER_X;
+        lastY = CONFIG.CENTER_Y;
+        
+        E.connectionDot.classList.add('connected');
+        E.connectionText.textContent = 'Connected';
+        E.connectBtn.textContent = 'Disconnect';
+        E.shootBtn.disabled = false;
+        
+        log(`Connected at ${baud} baud`, 'success');
+        readSerial();
+      } catch (e) { log(`Connection failed: ${e.message}`, 'error'); }
+    }
+
+    async function disconnect() {
+      stopBuzz();
+      try {
+        if (state.reader) { state.reader.cancel(); state.reader.releaseLock(); state.reader = null; }
+        if (state.writer) { state.writer.releaseLock(); state.writer = null; }
+        if (state.port) { await state.port.close(); state.port = null; }
+      } catch (e) { log(`Disconnect error: ${e.message}`, 'error'); }
+      state.connected = false;
+      E.connectionDot.classList.remove('connected');
+      E.connectionText.textContent = 'Disconnected';
+      E.connectBtn.textContent = 'Connect';
+      E.shootBtn.disabled = true;
+      E.calCountdown.classList.remove('active');
+      log('Disconnected', 'info');
+    }
+
+    async function readSerial() {
+      if (!state.port) return;
+      let baselineSet = false;
+      try {
+        state.reader = state.port.readable.getReader();
+        state.writer = state.port.writable.getWriter();
+        let buffer = '';
+        while (true) {
+          const { value, done } = await state.reader.read();
+          if (done) break;
+          buffer += new TextDecoder().decode(value);
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            const t = line.trim();
+            if (t.startsWith('{') && t.endsWith('}')) {
+              try {
+                const data = JSON.parse(t);
+                if (!baselineSet && data.P !== undefined && data.R !== undefined) {
+                  state.basePitch = data.P;
+                  state.baseRoll = data.R;
+                  baselineSet = true;
+                  log(`Baseline set`, 'info');
+                }
+                updateSensorData(data);
+              } catch (e) {}
+            }
+          }
+        }
+        state.reader.releaseLock();
+        state.reader = null;
+      } catch (e) { log(`Read error: ${e.message}`, 'error'); }
+      disconnect();
+    }
+
+    function enableDemo() {
+      state.connected = true;
+      state.demoMode = true;
+      state.pitch = 0;
+      state.roll = 0;
+      state.basePitch = 0;
+      state.baseRoll = 0;
+      state.crosshairX = CONFIG.CENTER_X;
+      state.crosshairY = CONFIG.CENTER_Y;
+      state.calibState = 'idle';
+      state.activePoint = null;
+      state.onTargetTime = 0;
+      stillStart = 0;
+      lastX = CONFIG.CENTER_X;
+      lastY = CONFIG.CENTER_Y;
+      E.connectionDot.classList.add('connected');
+      E.connectionText.textContent = 'Demo Mode';
+      E.shootBtn.disabled = false;
+      E.connectBtn.style.display = 'none';
+      E.demoBtn.style.display = 'none';
+      log('Demo mode enabled', 'info');
+      updateUI();
+      
+      E.targetContainer.addEventListener('mousemove', demoMouseMove);
+    }
+    
+    function demoMouseMove(e) {
+      if (!state.demoMode) return;
+      const rect = E.targetContainer.getBoundingClientRect();
+      let x = e.clientX - rect.left;
+      let y = e.clientY - rect.top;
+      
+      x = Math.max(0, Math.min(x, 550));
+      y = Math.max(0, Math.min(y, 550));
+      
+      state.crosshairX = x;
+      state.crosshairY = y;
+    }
+
+    function frameLoop(timestamp) {
+      if (state.connected) {
+        const atRef = isAtReference();
+        
+        if (atRef && !state.wasAtRef) {
+          playBuzz();
+          state.onTargetTime = 0;
+        } else if (!atRef && state.wasAtRef) {
+          stopBuzz();
+        }
+        
+        state.onTarget = atRef;
+        state.wasAtRef = atRef;
+        
+        if (atRef) {
+          state.onTargetTime += 1/60;
+        }
+      }
+      
+      updateUI();
+      requestAnimationFrame(frameLoop);
+    }
+
+    const STILLNESS_THRESHOLD = 3;
+    
+    let stillStart = 0;
+    let lastX = 0, lastY = 0;
+
+    setInterval(() => {
+      if (!state.connected) return;
+      
+      const cx = Math.round(state.crosshairX);
+      const cy = Math.round(state.crosshairY);
+      
+      const dx = Math.abs(cx - lastX);
+      const dy = Math.abs(cy - lastY);
+      const moved = dx > STILLNESS_THRESHOLD || dy > STILLNESS_THRESHOLD;
+      
+      if (moved) {
+        stillStart = Date.now();
+      } else {
+        if (stillStart === 0) {
+          stillStart = Date.now();
+        } else {
+          const elapsed = Date.now() - stillStart;
+          
+          if (state.calibState === 'idle' && elapsed >= CALIB_DELAY) {
+            state.calibState = 'reference';
+            stillStart = Date.now();
+          } else if (state.calibState === 'reference' && elapsed >= 1000) {
+            state.activePoint = { x: cx, y: cy };
+            state.refMarkerX = cx;
+            state.refMarkerY = cy;
+            state.calibState = 'monitoring';
+            stillStart = Date.now();
+            log(`Reference set: ${cx}, ${cy}`, 'success');
+          } else if (state.calibState === 'monitoring' && elapsed >= CALIB_DELAY) {
+            state.activePoint = { x: cx, y: cy };
+            state.refMarkerX = cx;
+            state.refMarkerY = cy;
+            stillStart = Date.now();
+            log(`Reference updated: ${cx}, ${cy}`, 'info');
+          }
+        }
+      }
+      
+      lastX = cx;
+      lastY = cy;
+    }, 16);
+
+    E.connectBtn.addEventListener('click', () => state.connected ? disconnect() : connect());
+    E.demoBtn.addEventListener('click', () => { initAudio(); enableDemo(); });
+    E.shootBtn.addEventListener('click', shoot);
+    E.resetBtn.addEventListener('click', fullReset);
+    E.debugBtn.addEventListener('click', () => { E.debugPanel.style.display = 'block'; });
+    document.addEventListener('keydown', e => { if (e.code === 'Space' && state.canShoot && state.connected) { e.preventDefault(); shoot(); } });
+
+    function initDisplayInfo() {
+      const dpr = window.devicePixelRatio || 1;
+      log(`Display: ${window.screen.width}x${window.screen.height} @ ${Math.round(dpr * 100)}% scale`, 'info');
+      log(`Viewport: ${window.innerWidth}x${window.innerHeight}`, 'info');
+    }
+
+    requestAnimationFrame(frameLoop);
+    initDisplayInfo();
+    log('Archery Simulation ready', 'info');
+  </script>
+</body>
+</html>
