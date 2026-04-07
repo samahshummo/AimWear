@@ -1,6 +1,7 @@
 # Archery Simulation with MMA8451
 
-Real-time archery target simulation using MMA8451 accelerometer data.
+To improve accessibility of archery to visually impaired/blind athletes and enhance overall user and staff experience. Real-time archery target simulation using MMA8451 accelerometer data to self-create a point of reference, increasing independence and confidence.
+
 
 ## Components
 
